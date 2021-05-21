@@ -413,7 +413,7 @@ public class DeviceManager
     private void handlePortRequest(InternalPortUpDownEvent event) {
         DeviceId deviceId = event.deviceId();
         checkNotNull(deviceId, DEVICE_ID_NULL);
-        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        checkNotNull(event.portNumber(), PORT_NUMBER_NULL);
         checkState(mastershipService.isLocalMaster(deviceId), EVENT_NON_MASTER);
         changePortStateAtMaster(event.deviceId(), event.portNumber(), event.isEnable());
     }
@@ -435,7 +435,7 @@ public class DeviceManager
     public void changePortState(DeviceId deviceId, PortNumber portNumber,
                                 boolean enable) {
         checkNotNull(deviceId, DEVICE_ID_NULL);
-        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        checkNotNull(portNumber, PORT_NUMBER_NULL);
         NodeId masterId = mastershipService.getMasterFor(deviceId);
 
         if (masterId == null) {
@@ -834,6 +834,13 @@ public class DeviceManager
                     // TODO: Shouldn't we be triggering event?
                     //final Device device = getDevice(deviceId);
                     //post(new DeviceEvent(DEVICE_MASTERSHIP_CHANGED, device));
+                } else if (requested ==  MastershipRole.STANDBY) {
+                    // For P4RT devices, the response role will be NONE when this node is expected to be STANDBY
+                    // but the stream channel is not opened correctly.
+                    // Calling reassertRole will trigger the mechanism in GeneralDeviceProvider that
+                    // attempts to re-establish the stream channel
+                    backgroundService.execute(() -> reassertRole(deviceId, expected));
+                    return;
                 }
             }
         }
